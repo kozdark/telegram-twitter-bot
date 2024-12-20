@@ -1,6 +1,5 @@
 import tweepy
 from telegram import Bot
-from time import sleep
 
 # Twitter API keys
 TWITTER_API_KEY = 'ZqSbHnlqxRsEj2po0jd7EAxlr'
@@ -23,22 +22,36 @@ telegram_bot = Bot(token=TELEGRAM_BOT_TOKEN)
 # Account to monitor
 TWITTER_USER = 'sullyfromDeets'  # Replace with the Twitter username
 
-last_tweet_id = None
-
-def check_for_new_tweets():
-    global last_tweet_id
-    tweets = twitter_api.user_timeline(screen_name=TWITTER_USER, count=1, tweet_mode="extended")
-    if tweets:
-        latest_tweet = tweets[0]
-        if last_tweet_id != latest_tweet.id:
-            last_tweet_id = latest_tweet.id
-            message = f"New tweet from @{TWITTER_USER}:\n\n{latest_tweet.full_text}\n\nLink: https://twitter.com/{TWITTER_USER}/status/{latest_tweet.id}"
+# Define a StreamListener class for real-time tweet monitoring
+class MyStreamListener(tweepy.StreamListener):
+    def on_status(self, status):
+        # Check if the tweet is from the user we're interested in
+        if status.user.screen_name.lower() == TWITTER_USER.lower():
+            tweet_text = status.text
+            tweet_id = status.id
+            tweet_link = f"https://twitter.com/{TWITTER_USER}/status/{tweet_id}"
+            
+            # Construct the message
+            message = f"New tweet from @{TWITTER_USER}:\n\n{tweet_text}\n\nLink: {tweet_link}"
+            
+            # Send the message to the Telegram chat
             telegram_bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+    
+    def on_error(self, status_code):
+        if status_code == 420:
+            # Return False to disconnect the stream in case of rate limiting
+            print("Rate limit reached, disconnecting stream.")
+            return False
+        print(f"Error: {status_code}")
+        return True
 
-# Continuous Monitoring
-while True:
-    try:
-        check_for_new_tweets()
-    except Exception as e:
-        print(f"Error: {e}")
-    sleep(60)  # Check every 60 seconds
+# Set up the Twitter stream
+listener = MyStreamListener()
+stream = tweepy.Stream(auth=twitter_api.auth, listener=listener)
+
+# Start streaming the user's tweets in real-time
+try:
+    print(f"Listening for new tweets from @{TWITTER_USER}...")
+    stream.filter(follow=[str(twitter_api.get_user(screen_name=TWITTER_USER).id)])
+except Exception as e:
+    print(f"Error starting the stream: {e}")
