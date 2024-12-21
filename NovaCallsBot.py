@@ -22,7 +22,7 @@ telegram_bot = Bot(token=TELEGRAM_BOT_TOKEN)
 # Account to monitor
 TWITTER_USER = 'sullyfromDeets'  # Replace with the Twitter username
 
-# Define a StreamListener class for real-time tweet monitoring
+# Define a StreamListener class for real-time tweet monitoring (v1.1)
 class MyStreamListener(tweepy.StreamListener):
     def on_status(self, status):
         # Check if the tweet is from the user we're interested in
@@ -45,7 +45,7 @@ class MyStreamListener(tweepy.StreamListener):
         print(f"Error: {status_code}")
         return True
 
-# Set up the Twitter stream
+# Set up the Twitter stream using v1.1 (using follow parameter)
 listener = MyStreamListener()
 stream = tweepy.Stream(auth=twitter_api.auth, listener=listener)
 
