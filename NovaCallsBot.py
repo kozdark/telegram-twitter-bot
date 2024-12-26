@@ -6,6 +6,7 @@ TWITTER_API_KEY = 'ZqSbHnlqxRsEj2po0jd7EAxlr'
 TWITTER_API_SECRET = 'Yd6rP5oIvipEU2rz9CgMKMabWL6elb02ttNQ6FY1ylROdFOcI3'
 TWITTER_ACCESS_TOKEN = '1516153749244362760-EJaUXObu6Ci2uxDGnQu5rpI1aHTxCu'
 TWITTER_ACCESS_SECRET = 'Wzvzf2JnYIPV2Ls8RePIjyCLOShr7Qpal2UR3ay2J3Gww'
+TWITTER_BEARER_TOKEN = 'AAAAAAAAAAAAAAAAAAAAAH6hxgEAAAAA%2BG3HcH6cXYW8%2FhuRAckyGNgURNA%3DMycOROeCJqt2dIpuh4AvROlVVti0LWtMveyef6zjKtP8CzwjEE'
 
 # Telegram Bot Token
 TELEGRAM_BOT_TOKEN = '7554759873:AAE8xW4IMPZuamLSO6ZSYMQaf7vhvR75fhc'
@@ -46,7 +47,7 @@ class MyStreamClient(tweepy.StreamingClient):
         return True
 
 # Set up the Twitter stream using v4.x StreamingClient
-client = MyStreamClient(bearer_token=TWITTER_ACCESS_TOKEN)
+client = MyStreamClient(bearer_token=TWITTER_BEARER_TOKEN)
 
 # Start streaming the user's tweets in real-time
 try:
