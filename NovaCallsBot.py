@@ -1,9 +1,11 @@
 import tweepy
 from telegram import Bot
-import time
 
-# Twitter API credentials (replace with your own)
-TWITTER_BEARER_TOKEN = 'AAAAAAAAAAAAAAAAAAAAAH6hxgEAAAAAMueN4cwwP3M9uOILfaitKDLqhYs%3DOYcVUTvXjopNGljNGxHfYsgXFralWlZoNJKQoJcE7KszAwXnXK'
+# Twitter API keys (OAuth 1.0a)
+TWITTER_API_KEY = 'ZqSbHnlqxRsEj2po0jd7EAxlr'
+TWITTER_API_SECRET = 'Yd6rP5oIvipEU2rz9CgMKMabWL6elb02ttNQ6FY1ylROdFOcI3'
+TWITTER_ACCESS_TOKEN = '1516153749244362760-EJaUXObu6Ci2uxDGnQu5rpI1aHTxCu'
+TWITTER_ACCESS_SECRET = 'Wzvzf2JnYIPV2Ls8RePIjyCLOShr7Qpal2UR3ay2J3Gww'
 
 # Telegram Bot Token and Chat ID
 TELEGRAM_BOT_TOKEN = '7554759873:AAE8xW4IMPZuamLSO6ZSYMQaf7vhvR75fhc'
@@ -12,61 +14,52 @@ TELEGRAM_CHAT_ID = 'NovaCallsBot'  # Replace with your Telegram user or group ch
 # The Twitter username to monitor
 TWITTER_USER = 'sullyfromDeets'  # Replace with the username you want to monitor
 
+# Initialize Twitter API
+auth = tweepy.OAuthHandler(TWITTER_API_KEY, TWITTER_API_SECRET)
+auth.set_access_token(TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET)
+twitter_api = tweepy.API(auth)
+
 # Initialize Telegram Bot
 telegram_bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-# Define a StreamClient class for real-time tweet monitoring
-class MyStreamClient(tweepy.StreamingClient):
-    def __init__(self, bearer_token, telegram_bot, twitter_username, chat_id):
-        super().__init__(bearer_token)
-        self.telegram_bot = telegram_bot
-        self.twitter_username = twitter_username
-        self.chat_id = chat_id
-        self.user_id = None
+# Get the User ID of the monitored Twitter account
+try:
+    user = twitter_api.get_user(screen_name=TWITTER_USER)
+    TWITTER_USER_ID = user.id_str
+    print(f"Monitoring tweets from @{TWITTER_USER} (User ID: {TWITTER_USER_ID})")
+except Exception as e:
+    print(f"Error fetching user details: {e}")
+    exit()
 
-        # Get the Twitter user ID of the monitored account
-        client = tweepy.Client(bearer_token=bearer_token)
-        user = client.get_user(username=self.twitter_username)
-        if user and user.data:
-            self.user_id = user.data.id
-        else:
-            raise ValueError(f"Could not find user with username: {self.twitter_username}")
-
-    def on_tweet(self, tweet):
-        # Filter tweets from the specific user
-        if tweet.author_id == self.user_id:
-            tweet_link = f"https://twitter.com/{self.twitter_username}/status/{tweet.id}"
-            message = f"New tweet from @{self.twitter_username}:\n\n{tweet.text}\n\n{tweet_link}"
-            self.telegram_bot.send_message(chat_id=self.chat_id, text=message)
+# Define a StreamListener for real-time monitoring
+class MyStreamListener(tweepy.Stream):
+    def on_status(self, status):
+        if str(status.user.id) == TWITTER_USER_ID:
+            tweet_text = status.text
+            tweet_id = status.id
+            tweet_link = f"https://twitter.com/{TWITTER_USER}/status/{tweet_id}"
+            
+            # Construct the message
+            message = f"New tweet from @{TWITTER_USER}:\n\n{tweet_text}\n\nLink: {tweet_link}"
+            
+            # Send the message to the Telegram chat
+            telegram_bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
             print(f"Sent message: {message}")
 
     def on_error(self, status_code):
         print(f"Error: {status_code}")
-        if status_code == 420:  # Rate limit
+        if status_code == 420:  # Rate limiting
             return False
-        return True
 
-# Initialize the streaming client
+# Start the stream
 try:
     print("Starting Twitter stream...")
-    stream_client = MyStreamClient(
-        bearer_token=TWITTER_BEARER_TOKEN,
-        telegram_bot=telegram_bot,
-        twitter_username=TWITTER_USER,
-        chat_id=TELEGRAM_CHAT_ID
+    stream_listener = MyStreamListener(
+        consumer_key=TWITTER_API_KEY,
+        consumer_secret=TWITTER_API_SECRET,
+        access_token=TWITTER_ACCESS_TOKEN,
+        access_token_secret=TWITTER_ACCESS_SECRET,
     )
-
-    # Clear existing rules
-    existing_rules = stream_client.get_rules()
-    if existing_rules.data:
-        rule_ids = [rule.id for rule in existing_rules.data]
-        stream_client.delete_rules(rule_ids)
-
-    # Add a rule to monitor the specific user's tweets
-    stream_client.add_rules(tweepy.StreamRule(value=f"from:{TWITTER_USER}"))
-
-    # Start the stream
-    stream_client.filter()
-
+    stream_listener.filter(follow=[TWITTER_USER_ID], is_async=False)
 except Exception as e:
-    print(f"Error: {e}")
+    print(f"Error starting the stream: {e}")
