@@ -22,13 +22,13 @@ telegram_bot = Bot(token=TELEGRAM_BOT_TOKEN)
 # Account to monitor
 TWITTER_USER = 'sullyfromDeets'  # Replace with the Twitter username
 
-# Define a StreamListener class for real-time tweet monitoring (v1.1)
-class MyStreamListener(tweepy.StreamListener):
-    def on_status(self, status):
+# Define a StreamClient class for real-time tweet monitoring (for Tweepy v4.x+)
+class MyStreamClient(tweepy.StreamingClient):
+    def on_tweet(self, tweet):
         # Check if the tweet is from the user we're interested in
-        if status.user.screen_name.lower() == TWITTER_USER.lower():
-            tweet_text = status.text
-            tweet_id = status.id
+        if tweet.author_id == twitter_api.get_user(screen_name=TWITTER_USER).id:
+            tweet_text = tweet.text
+            tweet_id = tweet.id
             tweet_link = f"https://twitter.com/{TWITTER_USER}/status/{tweet_id}"
             
             # Construct the message
@@ -45,13 +45,14 @@ class MyStreamListener(tweepy.StreamListener):
         print(f"Error: {status_code}")
         return True
 
-# Set up the Twitter stream using v1.1 (using follow parameter)
-listener = MyStreamListener()
-stream = tweepy.Stream(auth=twitter_api.auth, listener=listener)
+# Set up the Twitter stream using v4.x StreamingClient
+client = MyStreamClient(bearer_token=TWITTER_ACCESS_TOKEN)
 
 # Start streaming the user's tweets in real-time
 try:
     print(f"Listening for new tweets from @{TWITTER_USER}...")
-    stream.filter(follow=[str(twitter_api.get_user(screen_name=TWITTER_USER).id)])
+    # Filter the stream to track the user's tweets by author_id
+    client.add_rules(tweepy.StreamRule(f"from:{TWITTER_USER}"))
+    client.filter()
 except Exception as e:
     print(f"Error starting the stream: {e}")
