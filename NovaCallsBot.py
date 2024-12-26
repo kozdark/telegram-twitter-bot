@@ -1,5 +1,6 @@
 import tweepy
 from telegram import Bot
+from time import sleep
 
 # Twitter API keys (OAuth 1.0a)
 TWITTER_API_KEY = 'ZqSbHnlqxRsEj2po0jd7EAxlr'
@@ -22,44 +23,37 @@ twitter_api = tweepy.API(auth)
 # Initialize Telegram Bot
 telegram_bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-# Get the User ID of the monitored Twitter account
+# Keep track of the last tweet ID
+last_tweet_id = None
+
+def fetch_latest_tweets():
+    global last_tweet_id
+    try:
+        # Fetch the most recent tweet
+        tweets = twitter_api.user_timeline(screen_name=TWITTER_USER, count=1, tweet_mode="extended")
+        if tweets:
+            latest_tweet = tweets[0]
+            if last_tweet_id != latest_tweet.id:
+                last_tweet_id = latest_tweet.id
+                tweet_text = latest_tweet.full_text
+                tweet_link = f"https://twitter.com/{TWITTER_USER}/status/{latest_tweet.id}"
+                
+                # Construct the message
+                message = f"New tweet from @{TWITTER_USER}:\n\n{tweet_text}\n\nLink: {tweet_link}"
+                
+                # Send the message to the Telegram chat
+                telegram_bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+                print(f"Sent message: {message}")
+    except Exception as e:
+        print(f"Error fetching tweets: {e}")
+
+# Polling loop
 try:
-    user = twitter_api.get_user(screen_name=TWITTER_USER)
-    TWITTER_USER_ID = user.id_str
-    print(f"Monitoring tweets from @{TWITTER_USER} (User ID: {TWITTER_USER_ID})")
+    print(f"Monitoring tweets from @{TWITTER_USER}...")
+    while True:
+        fetch_latest_tweets()
+        sleep(15)  # Check for new tweets every 15 seconds
+except KeyboardInterrupt:
+    print("Stopped monitoring.")
 except Exception as e:
-    print(f"Error fetching user details: {e}")
-    exit()
-
-# Define a StreamListener for real-time monitoring
-class MyStreamListener(tweepy.Stream):
-    def on_status(self, status):
-        if str(status.user.id) == TWITTER_USER_ID:
-            tweet_text = status.text
-            tweet_id = status.id
-            tweet_link = f"https://twitter.com/{TWITTER_USER}/status/{tweet_id}"
-            
-            # Construct the message
-            message = f"New tweet from @{TWITTER_USER}:\n\n{tweet_text}\n\nLink: {tweet_link}"
-            
-            # Send the message to the Telegram chat
-            telegram_bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-            print(f"Sent message: {message}")
-
-    def on_error(self, status_code):
-        print(f"Error: {status_code}")
-        if status_code == 420:  # Rate limiting
-            return False
-
-# Start the stream
-try:
-    print("Starting Twitter stream...")
-    stream_listener = MyStreamListener(
-        consumer_key=TWITTER_API_KEY,
-        consumer_secret=TWITTER_API_SECRET,
-        access_token=TWITTER_ACCESS_TOKEN,
-        access_token_secret=TWITTER_ACCESS_SECRET,
-    )
-    stream_listener.filter(follow=[TWITTER_USER_ID], is_async=False)
-except Exception as e:
-    print(f"Error starting the stream: {e}")
+    print(f"Unexpected error: {e}")
